@@ -19,8 +19,8 @@ Usage example:
 
 ```php
 <?php
-$whatsOSAmI = new WhatsOSAmI();
-$whatsOSAmI->getDistroName();
+$operatingSystem = new OperatingSystem();
+$operatingSystem->getDistroName();
 ```
 
 ## How to contribute
