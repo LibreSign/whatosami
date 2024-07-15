@@ -20,7 +20,7 @@ Usage example:
 ```php
 <?php
 $operatingSystem = new OperatingSystem();
-$operatingSystem->getDistroName();
+$operatingSystem->getLinuxDistribution();
 ```
 
 ## How to contribute
