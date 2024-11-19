@@ -77,7 +77,11 @@ class OperatingSystem
     private function getFromEtcRelease(): string
     {
         $file = $this->rootFolder . '/etc/*-release';
-        foreach (glob($file) as $path) {
+        $filesFound = glob($file);
+        if (!$filesFound) {
+            return '';
+        }
+        foreach ($filesFound as $path) {
             $content = file_get_contents($path);
             preg_match('/^ID=(?<version>.*)$/m', $content, $matches);
             if (isset($matches['version'])) {
@@ -102,10 +106,12 @@ class OperatingSystem
 
     private function isDebian(): string
     {
-        if (file_exists($this->rootFolder . '/etc/debian_version')) {
-            return 'Debian';
+        if ($this->isInOpenBasedir($this->rootFolder . '/etc/debian_version')) {
+            if (file_exists($this->rootFolder . '/etc/debian_version')) {
+                return 'Debian';
+            }
         }
-        if (!$this->runSafe('type apt 2>/dev/null >/dev/null &')) {
+        if (!$this->runSafe('type apt')) {
             return '';
         }
         return 'Debian';
@@ -113,7 +119,7 @@ class OperatingSystem
 
     private function isAlpine(): string
     {
-        if (!$this->runSafe('type apk 2>/dev/null >/dev/null &')) {
+        if (!$this->runSafe('type apk')) {
             return '';
         }
         return 'Alpine';
@@ -121,7 +127,16 @@ class OperatingSystem
 
     private function runSafe(string $command): string
     {
-        $output = shell_exec($command . ' 2>/dev/null >/dev/null &');
+        $output = shell_exec($command . ' 2>/dev/null');
         return (string) $output;
+    }
+
+    private function isInOpenBasedir(string $path): bool
+    {
+        $openBasedir = ini_get('open_basedir');
+        if (empty($openBasedir) || strpos($openBasedir, $path) !== false) {
+            return true;
+        }
+        return false;
     }
 }
