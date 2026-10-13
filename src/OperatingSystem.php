@@ -10,10 +10,45 @@ namespace LibreSign\WhatOSAmI;
 
 class OperatingSystem
 {
+    public const SELINUX_ENFORCING = 'enforcing';
+    public const SELINUX_PERMISSIVE = 'permissive';
+    public const SELINUX_UNAVAILABLE = 'unavailable';
+    public const SELINUX_UNKNOWN = 'unknown';
+
+
     public function __construct(
         private string $rootFolder = '/',
     ) {
     }
+
+    /**
+     * Returns the current SELinux enforcement status.
+     */
+    public function getSELinuxStatus(): string
+    {
+        $path = $this->rootFolder . '/sys/fs/selinux/enforce';
+
+        if (!file_exists($path)) {
+            return self::SELINUX_UNAVAILABLE;
+        }
+
+        if (!$this->isInOpenBasedir($path) || !is_readable($path)) {
+            return self::SELINUX_UNKNOWN;
+        }
+
+        $value = @file_get_contents($path);
+
+        if ($value === false) {
+            return self::SELINUX_UNKNOWN;
+        }
+
+        return match (trim($value)) {
+            '1' => self::SELINUX_ENFORCING,
+            '0' => self::SELINUX_PERMISSIVE,
+            default => self::SELINUX_UNKNOWN,
+        };
+    }
+
     /**
      * Returns PHP_OS_FAMILY (if defined (which it is on PHP >= 7.2)).
      * Returns a string (compatible with PHP_OS_FAMILY) derived from PHP_OS otherwise.
@@ -23,6 +58,8 @@ class OperatingSystem
      * - https://github.com/sebastianbergmann/environment/issues/21
      * - https://unix.stackexchange.com/questions/6345/how-can-i-get-distribution-name-and-version-number-in-a-simple-shell-script
      */
+
+
     public function getFamily(): string
     {
         if (defined('PHP_OS_FAMILY')) {

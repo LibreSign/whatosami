@@ -34,6 +34,93 @@ final class OperatingSystemTest extends TestCase
         $this->assertEquals(strtolower($expected), strtolower($actual));
     }
 
+    #[DataProvider('dataSELinuxStatus')]
+    public function testGetSELinuxStatus(
+        string $content,
+        string $expected
+    ): void {
+        $tempFolder = sys_get_temp_dir()
+            . '/whatosami-selinux-' . bin2hex(random_bytes(8));
+
+        $selinuxFolder = $tempFolder . '/sys/fs/selinux';
+        $enforceFile = $selinuxFolder . '/enforce';
+
+        try {
+            $this->assertTrue(
+                mkdir($selinuxFolder, 0755, true)
+            );
+
+            file_put_contents($enforceFile, $content);
+
+            $instance = new OperatingSystem($tempFolder);
+
+            $this->assertSame(
+                $expected,
+                $instance->getSELinuxStatus()
+            );
+        } finally {
+            if (file_exists($enforceFile)) {
+                unlink($enforceFile);
+            }
+
+            if (is_dir($selinuxFolder)) {
+                rmdir($selinuxFolder);
+                rmdir($tempFolder . '/sys/fs');
+                rmdir($tempFolder . '/sys');
+                rmdir($tempFolder);
+            }
+        }
+    }
+
+    public static function dataSELinuxStatus(): array
+    {
+        return [
+            'enforcing' => [
+                '1',
+                OperatingSystem::SELINUX_ENFORCING,
+            ],
+            'enforcing with newline' => [
+                "1\n",
+                OperatingSystem::SELINUX_ENFORCING,
+            ],
+            'permissive' => [
+                '0',
+                OperatingSystem::SELINUX_PERMISSIVE,
+            ],
+            'permissive with newline' => [
+                "0\n",
+                OperatingSystem::SELINUX_PERMISSIVE,
+            ],
+            'empty content' => [
+                '',
+                OperatingSystem::SELINUX_UNKNOWN,
+            ],
+            'invalid content' => [
+                'unexpected',
+                OperatingSystem::SELINUX_UNKNOWN,
+            ],
+        ];
+    }
+
+    public function testGetSELinuxStatusUnavailable(): void
+    {
+        $tempFolder = sys_get_temp_dir()
+            . '/whatosami-selinux-' . bin2hex(random_bytes(8));
+
+        mkdir($tempFolder, 0755, true);
+
+        try {
+            $instance = new OperatingSystem($tempFolder);
+
+            $this->assertSame(
+                OperatingSystem::SELINUX_UNAVAILABLE,
+                $instance->getSELinuxStatus()
+            );
+        } finally {
+            rmdir($tempFolder);
+        }
+    }
+
     public static function dataGetLinuxDistribution(): array
     {
         return [
