@@ -15,7 +15,6 @@ class OperatingSystem
     public const SELINUX_UNAVAILABLE = 'unavailable';
     public const SELINUX_UNKNOWN = 'unknown';
 
-
     public function __construct(
         private string $rootFolder = '/',
     ) {
@@ -58,8 +57,6 @@ class OperatingSystem
      * - https://github.com/sebastianbergmann/environment/issues/21
      * - https://unix.stackexchange.com/questions/6345/how-can-i-get-distribution-name-and-version-number-in-a-simple-shell-script
      */
-
-
     public function getFamily(): string
     {
         if (defined('PHP_OS_FAMILY')) {
