@@ -27,11 +27,15 @@ class OperatingSystem
     {
         $path = $this->rootFolder . '/sys/fs/selinux/enforce';
 
+        if (!$this->isInOpenBasedir($path)) {
+            return self::SELINUX_UNKNOWN;
+        }
+
         if (!file_exists($path)) {
             return self::SELINUX_UNAVAILABLE;
         }
 
-        if (!$this->isInOpenBasedir($path) || !is_readable($path)) {
+        if (!is_readable($path)) {
             return self::SELINUX_UNKNOWN;
         }
 
@@ -168,9 +172,51 @@ class OperatingSystem
     private function isInOpenBasedir(string $path): bool
     {
         $openBasedir = ini_get('open_basedir');
-        if (empty($openBasedir) || strpos($openBasedir, $path) !== false) {
+        if ($openBasedir === false || $openBasedir === '') {
             return true;
         }
+
+        $normalizedPath = str_replace('\\', '/', $path);
+        if (DIRECTORY_SEPARATOR === '\\') {
+            $normalizedPath = strtolower($normalizedPath);
+        }
+
+        foreach (explode(PATH_SEPARATOR, $openBasedir) as $directory) {
+            // A dot in open_basedir refers to the current working directory.
+            if ($directory === '.') {
+                $directory = getcwd();
+                if ($directory === false) {
+                    continue;
+                }
+            }
+
+            $normalizedDirectory = str_replace('\\', '/', $directory);
+            if ($normalizedDirectory === '/') {
+                return true;
+            }
+
+            $normalizedDirectory = rtrim($normalizedDirectory, '/');
+            if ($normalizedDirectory === '') {
+                continue;
+            }
+            if (DIRECTORY_SEPARATOR === '\\') {
+                $normalizedDirectory = strtolower($normalizedDirectory);
+
+                // Preserve the slash separating a drive root from its children.
+                if (preg_match('/^[a-z]:$/', $normalizedDirectory) === 1) {
+                    if (str_starts_with($normalizedPath, $normalizedDirectory . '/')) {
+                        return true;
+                    }
+                    continue;
+                }
+            }
+
+            if ($normalizedPath === $normalizedDirectory ||
+                str_starts_with($normalizedPath, $normalizedDirectory . '/')) {
+                return true;
+            }
+        }
+
         return false;
     }
 }
