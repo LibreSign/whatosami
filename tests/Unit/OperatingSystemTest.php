@@ -465,8 +465,7 @@ final class OperatingSystemTest extends TestCase
         string $rootFolder,
         string $allowedFolder,
         ?string $workingDirectory = null
-    ): array
-    {
+    ): array {
         $sourceFile = dirname(__DIR__, 2) . '/src/OperatingSystem.php';
         $script = <<<'PHP'
         require $argv[1];
