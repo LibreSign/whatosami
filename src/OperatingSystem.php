@@ -10,10 +10,67 @@ namespace LibreSign\WhatOSAmI;
 
 class OperatingSystem
 {
+    public const SELINUX_ENFORCING = 'enforcing';
+    public const SELINUX_PERMISSIVE = 'permissive';
+    public const SELINUX_UNAVAILABLE = 'unavailable';
+    public const SELINUX_UNKNOWN = 'unknown';
+
     public function __construct(
         private string $rootFolder = '/',
     ) {
     }
+
+    /**
+     * Returns the current SELinux enforcement status.
+     */
+    public function getSELinuxStatus(): string
+    {
+        $path = $this->rootFolder . '/sys/fs/selinux/enforce';
+
+        // Let PHP resolve the effective path, including symbolic links.
+        // A blocked open_basedir check emits a warning; keep it local and
+        // report UNKNOWN rather than confusing restricted access with absence.
+        $restrictedAccess = false;
+        if (ini_get('open_basedir')) {
+            set_error_handler(static function () use (&$restrictedAccess): bool {
+                $restrictedAccess = true;
+                return true;
+            }, E_WARNING);
+
+            try {
+                $exists = file_exists($path);
+            } finally {
+                restore_error_handler();
+            }
+        } else {
+            $exists = file_exists($path);
+        }
+
+        if ($restrictedAccess) {
+            return self::SELINUX_UNKNOWN;
+        }
+
+        if (!$exists) {
+            return self::SELINUX_UNAVAILABLE;
+        }
+
+        if (!is_readable($path)) {
+            return self::SELINUX_UNKNOWN;
+        }
+
+        $value = @file_get_contents($path);
+
+        if ($value === false) {
+            return self::SELINUX_UNKNOWN;
+        }
+
+        return match (trim($value)) {
+            '1' => self::SELINUX_ENFORCING,
+            '0' => self::SELINUX_PERMISSIVE,
+            default => self::SELINUX_UNKNOWN,
+        };
+    }
+
     /**
      * Returns PHP_OS_FAMILY (if defined (which it is on PHP >= 7.2)).
      * Returns a string (compatible with PHP_OS_FAMILY) derived from PHP_OS otherwise.
@@ -134,9 +191,71 @@ class OperatingSystem
     private function isInOpenBasedir(string $path): bool
     {
         $openBasedir = ini_get('open_basedir');
-        if (empty($openBasedir) || strpos($openBasedir, $path) !== false) {
+        if ($openBasedir === false || $openBasedir === '') {
             return true;
         }
+
+        $normalizedPath = $this->normalizePathForOpenBasedir($path);
+        if ($normalizedPath === null) {
+            return false;
+        }
+
+        foreach (explode(PATH_SEPARATOR, $openBasedir) as $directory) {
+            $normalizedDirectory = $this->normalizePathForOpenBasedir($directory);
+            if ($normalizedDirectory === null) {
+                continue;
+            }
+
+            if ($normalizedDirectory === '/' ||
+                $normalizedPath === $normalizedDirectory ||
+                str_starts_with($normalizedPath, rtrim($normalizedDirectory, '/') . '/')) {
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    /**
+     * Normalize separators, repeated slashes, and dot segments before checking
+     * directory boundaries. No filesystem access is performed: PHP can reject
+     * realpath/file_exists calls outside open_basedir with a warning.
+     */
+    private function normalizePathForOpenBasedir(string $path): ?string
+    {
+        $path = str_replace('\\', '/', $path);
+        if ($path === '') {
+            return null;
+        }
+
+        $drive = '';
+        if (DIRECTORY_SEPARATOR === '\\' && preg_match('/^[a-z]:\//i', $path) === 1) {
+            $drive = strtolower(substr($path, 0, 2));
+            $path = substr($path, 2);
+        } elseif (!str_starts_with($path, '/')) {
+            $cwd = getcwd();
+            if ($cwd === false) {
+                return null;
+            }
+            $path = str_replace('\\', '/', $cwd) . '/' . $path;
+            if (DIRECTORY_SEPARATOR === '\\' && preg_match('/^[a-z]:\//i', $path) === 1) {
+                $drive = strtolower(substr($path, 0, 2));
+                $path = substr($path, 2);
+            }
+        }
+
+        $parts = [];
+        foreach (explode('/', $path) as $part) {
+            if ($part === '' || $part === '.') {
+                continue;
+            }
+            if ($part === '..') {
+                array_pop($parts);
+                continue;
+            }
+            $parts[] = DIRECTORY_SEPARATOR === '\\' ? strtolower($part) : $part;
+        }
+
+        return $drive . '/' . implode('/', $parts);
     }
 }

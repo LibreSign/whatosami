@@ -23,6 +23,35 @@ $operatingSystem = new OperatingSystem();
 $operatingSystem->getLinuxDistribution();
 ```
 
+
+### SELinux status detection
+
+The `getSELinuxStatus()` method detects the current SELinux enforcement status without requiring administrative privileges.
+
+Usage example:
+
+```php
+<?php
+
+use LibreSign\WhatOSAmI\OperatingSystem;
+
+$operatingSystem = new OperatingSystem();
+$status = $operatingSystem->getSELinuxStatus();
+
+if ($status === OperatingSystem::SELINUX_ENFORCING) {
+    // SELinux is enforcing access-control rules.
+}
+```
+
+Possible return values:
+
+- `enforcing`: SELinux is active and enforcing security policies.
+- `permissive`: SELinux is active but not enforcing security policies.
+- `unavailable`: The SELinux status file does not exist.
+- `unknown`: The SELinux status could not be determined.
+
+The method reads `/sys/fs/selinux/enforce` and does not modify system settings.
+
 ## How to contribute
 
 Feel free to fork, improve and I will be very happy to receive pull requests with your improvements.
