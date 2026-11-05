@@ -2,7 +2,6 @@
     "name": "libresign/whatosami",
     "description": "What operational sytem am I",
     "type": "library",
-    "version": "0.0.2",
     "license": "AGPL-3.0-or-later",
     "autoload": {
         "psr-4": {
